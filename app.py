@@ -93,31 +93,95 @@ def classify_cancer():
         return jsonify("Error!"), 500
 
 
+# @app.route("/check_severity", methods=['POST'])
+# def check_severity():
+#     try:
+#         image_file = request.files['image']
+#         # get the image from request and preprocess the image
+#         image = Image.open(image_file)
+#         image = image.resize((128, 128))  # Resize the image to 64 x 64 pixels
+#         image = np.array(image)  # Convert image to NumPy array
+#         image = image / 255.0  # Normalize the pixel values to 0-1
+#         image = np.expand_dims(image, axis=0)
+#
+#         # load the model
+#         model = tf.keras.models.load_model("models/severity/new/model")
+#
+#         # run model on the image and return results as the response
+#         c = 0
+#         results = {}
+#         print(model.predict(image))
+#         for i in model.predict(image)[0]:
+#             label = ["low", "medium", "high"][c]
+#             print(label, np.around(i * 100, decimals=2), "%")
+#             c = c + 1
+#             results[label] = (np.around(i * 100, decimals=2))
+#         return jsonify(results)
+#     except:
+#         return jsonify("Error!"), 500
+
 @app.route("/check_severity", methods=['POST'])
 def check_severity():
     try:
+
+        # Load the binary classification model first
+        print("Image coming to the model")
+        binary_model = load_model("models/h5/keras_model.h5", compile=False)
+        print("Image left the model")
+
+        # Load the labels
+        class_names = open("models/h5/labels.txt", "r").readlines()
+        print(class_names)
+
+        # Process the image
         image_file = request.files['image']
-        # get the image from request and preprocess the image
-        image = Image.open(image_file)
-        image = image.resize((128, 128))  # Resize the image to 64 x 64 pixels
-        image = np.array(image)  # Convert image to NumPy array
-        image = image / 255.0  # Normalize the pixel values to 0-1
-        image = np.expand_dims(image, axis=0)
+        image = Image.open(image_file).convert("RGB")
 
-        # load the model
-        model = tf.keras.models.load_model("models/severity/new/model")
+        # Resize the image to 224x224
+        size = (224, 224)
+        image = ImageOps.fit(image, size, Image.Resampling.LANCZOS)
+        image_array = np.asarray(image)
+        normalized_image_array = (image_array.astype(np.float32) / 127.5) - 1
+        data = np.ndarray(shape=(1, 224, 224, 3), dtype=np.float32)
+        data[0] = normalized_image_array
 
-        # run model on the image and return results as the response
-        c = 0
-        results = {}
-        print(model.predict(image))
-        for i in model.predict(image)[0]:
-            label = ["low", "medium", "high"][c]
-            print(label, np.around(i * 100, decimals=2), "%")
-            c = c + 1
-            results[label] = (np.around(i * 100, decimals=2))
-        return jsonify(results)
-    except:
+        # Run binary classification on the image
+        binary_result = binary_model.predict(data)
+        print(binary_result)
+        binary_confidence = binary_result[0][0]
+
+        # Check if the image is "SkinRelatedImages" or "RandomImages"
+        if binary_confidence > 0.75:  # SkinRelatedImages
+            # Load the  model
+            print("Inside the condition")
+            severity_model = tf.keras.models.load_model("models/severity/new/model")
+            print("Model loaded")
+
+            image_file = request.files['image']
+            # get the image from request and preprocess the image
+            image = Image.open(image_file)
+            image = image.resize((128, 128))  # Resize the image to 64 x 64 pixels
+            image = np.array(image)  # Convert image to NumPy array
+            image = image / 255.0  # Normalize the pixel values to 0-1
+            image = np.expand_dims(image, axis=0)
+
+            # Run the severity model on the image and return results
+            c = 0
+            results = {}
+            print("results loaded")
+            print(severity_model.predict(image))
+            for i in severity_model.predict(image)[0]:
+                label = ["low", "medium", "high"][c]
+                print(label, np.around(i * 100, decimals=2), "%")
+                c = c + 1
+                results[label] = (np.around(i * 100, decimals=2))
+            return jsonify(results)
+        else:  # RandomImages
+            print("Random Image")
+            return jsonify("The image is not skin related")
+
+    except Exception as e:
+        print("Error", str(e))
         return jsonify("Error!"), 500
 
 
