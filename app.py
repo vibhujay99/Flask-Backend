@@ -21,47 +21,10 @@ CORS(app)
 def hello_world():
     return "<p>Hello, World!</p>"
 
-# @app.route("/classify_cancer", methods=['POST'])
-# def classify_cancer():
-#     try:
-#         image_file = request.files['image']
-#         # get the image from request and preprocess the image
-#         image = Image.open(image_file)
-#         image = image.resize((64, 64))  # Resize the image to 64 x 64 pixels
-#         image = np.array(image)  # Convert image to NumPy array
-#         image = image / 255.0  # Normalize the pixel values to 0-1
-#         image = np.expand_dims(image, axis=0)
-#
-#         # load the model
-#         print("Up")
-#         # model = tf.keras.models.load_model("models/keras/model")
-#         model = tf.keras.models.load_model("models/h5/model.h5")
-#         print("Down")
-#         # model = tf.saved_model.load('models/h5/model.h5')
-#
-#         # run model on the image and return results as the response
-#         c = 0
-#         results = {}
-#         for i in model.predict(image)[0]:
-#             label = ['akiec', 'bcc', 'bkl', 'df', 'mel', 'nv', 'vasc'][c]
-#             print(label, np.around(i * 100, decimals=2), "%")
-#             c = c + 1
-#             results[label] = (np.around(i * 100, decimals=2))
-#         return jsonify(results)
-#     except:
-#         return jsonify("Error!"), 500
-
 
 @app.route("/classify_cancer", methods=['POST'])
 def classify_cancer():
     try:
-        # image_file = request.files['image']
-        # # get the image from request and preprocess the image
-        # image = Image.open(image_file)
-        # image = image.resize((64, 64))  # Resize the image to 64 x 64 pixels
-        # image = np.array(image)  # Convert image to NumPy array
-        # image = image / 255.0  # Normalize the pixel values to 0-1
-        # image = np.expand_dims(image, axis=0)
 
         # Load the binary classification model first
         print("Image coming to the model")
@@ -117,7 +80,7 @@ def classify_cancer():
             return jsonify(results)
         else:  # RandomImages
             print("Random Image")
-            return jsonify("The image is not skin related")
+            return jsonify("Invalid")
 
     except Exception as e:
         print("Error", str(e))
@@ -152,6 +115,35 @@ def check_severity():
         return jsonify("Error!"), 500
 
 
+@app.route("/lesion_classify", methods=['POST'])
+def lesion_classify():
+    try:
+        image = request.files["image"]
+        img = Image.open(image)
+        img = img.resize((224, 224))  # Resize to match model input size
+        img_array = np.array(img) / 255.0
+
+        model = tf.keras.models.load_model("models/h5/RT-skin-lesion.h5")
+
+        class_labels = [
+            "scars",
+            "bullaVesicles",
+            "randomImage"
+        ]
+
+        predictions = model.predict(np.expand_dims(img_array, axis=0))
+        predicted_class = class_labels[np.argmax(predictions)]
+        confidence = np.max(predictions)
+
+        if confidence >= 0.8:
+            return jsonify({"result": predicted_class, "confidence": float(confidence)}), 200
+        else:
+            return jsonify({"error": "Confidence level is below 80%"}), 400
+
+    except:
+        return jsonify("Error"), 500
+
+
 @app.route("/login_user", methods=['POST'])
 def login_user():
     try:
@@ -183,4 +175,4 @@ def register_user():
             'success': True,
         }
     except Exception as e:
-        return jsonify(str(e)),500
+        return jsonify(str(e)), 500
