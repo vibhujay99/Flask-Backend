@@ -126,9 +126,9 @@ def lesion_classify():
         model = tf.keras.models.load_model("models/h5/RT-skin-lesion.h5")
 
         class_labels = [
-            "scars",
-            "bullaVesicles",
-            "randomImage"
+            "Scars",
+            "Bullae and Vesicles",
+            "Random Image"
         ]
 
         predictions = model.predict(np.expand_dims(img_array, axis=0))
