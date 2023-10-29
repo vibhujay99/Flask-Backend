@@ -144,6 +144,41 @@ def lesion_classify():
         return jsonify("Error"), 500
 
 
+@app.route("/disease_diagnose", methods=['POST'])
+def disease_diagnose():
+    try:
+        image = request.files["image"]
+        img = Image.open(image)
+        img = img.resize((150, 150))  # Resize to match model input size
+        img_array = np.array(img) / 255.0
+
+        model = tf.keras.models.load_model("models/h5/skin_disease_model_deb.h5")
+
+        class_labels = [
+            "Actinic keratosis",
+            "Atopic Dermatitis",
+            "Benign keratosis",
+            "Dermatofibroma",
+            "Melanocytic nevus",
+            "Melanoma",
+            "Squamous cell carcinoma",
+            "Tinea Ringworm Candidiasis",
+            "Vascular lesion"
+        ]
+
+        predictions = model.predict(np.expand_dims(img_array, axis=0))
+        predicted_class = class_labels[np.argmax(predictions)]
+        confidence = np.max(predictions)
+
+        if confidence >= 0.8:
+            return jsonify({"result": predicted_class, "confidence": float(confidence)}), 200
+        else:
+            return jsonify({"error": "Confidence level is below 80%"}), 400
+
+    except:
+        return jsonify("Error"), 500
+
+
 @app.route("/login_user", methods=['POST'])
 def login_user():
     try:
